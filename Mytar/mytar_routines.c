@@ -49,6 +49,7 @@ loadstr(FILE * file)
 	char* stringFromFile;
 	char charFromFile;
 	int length = 0;
+	int i;
 
 	if (file == NULL)
 		return NULL;
@@ -60,9 +61,6 @@ loadstr(FILE * file)
 	stringFromFile = malloc(sizeof(char)*(length+1));
 
 	fseek(file,-(length+1),SEEK_CUR);
-
-
-	int i;
 
 	for (i = 0; i < length+1; i++){
 		stringFromFile[i] = getc(file);
@@ -83,15 +81,26 @@ loadstr(FILE * file)
 stHeaderEntry*
 readHeader(FILE *tarFile, int *nFiles)
 {
-	//stHeaderEntry* array = NULL;
-	//int numFiles;
+	stHeaderEntry* array = NULL;
+	int nrFiles = 0;
+	int i;
 
 	if (tarFile == NULL)
 		return NULL;
 
+	//nrFiles = getc(tarFile);
+	fread(&nrFiles,sizeof(int),1,tarFile);
 
-	// Complete the function
-	return NULL;
+	array = malloc(sizeof(stHeaderEntry)*nrFiles);
+
+	for(i=0; i < nrFiles; i++){
+		array[i].name = loadstr(tarFile);
+		fread(&array[i].size, sizeof(int), 1, tarFile);
+	}
+
+	(*nFiles) = nrFiles;
+
+	return array;
 }
 
 /** Creates a tarball archive 
@@ -193,6 +202,35 @@ createTar(int nFiles, char *fileNames[], char tarName[])
 int
 extractTar(char tarName[])
 {
-	// Complete the function
+	stHeaderEntry *array;
+	FILE *inputFile;
+	int numFiles;
+	int i;
+
+	if ((inputFile = fopen(tarName, "r")) == NULL)
+		return EXIT_FAILURE;
+
+	array = readHeader(inputFile, &numFiles);
+
+	int j;
+	for(j=0; j < numFiles; j++){
+		printf("%s", array[j].name);
+	}
+
+	for (i=0; i<numFiles; i++){
+		FILE *outputFile = fopen(array[i].name,"w");
+		copynFile(inputFile,outputFile,array[i].size);
+		fclose(outputFile);
+	}
+
+	//free memory
+	for (i=0; i<numFiles; i++){
+		free(array[i].name);
+	}
+
+	free(array);
+
+	fclose(inputFile);
+
 	return EXIT_FAILURE;
 }
