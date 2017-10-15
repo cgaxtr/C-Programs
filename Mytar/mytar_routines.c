@@ -18,13 +18,12 @@ int
 copynFile(FILE * origin, FILE * destination, int nBytes)
 {
 	int totalBytes = 0;
-	char byteOrigin; //char size equal to byte size
+	int byteOrigin; //char size equal to byte size
 
 	if (origin == NULL || destination == NULL)
 		return -1;
 
-	while((totalBytes != nBytes) && ((byteOrigin = getc(origin)) != EOF)){
-		if (byteOrigin)
+	while((totalBytes < nBytes) && ((byteOrigin = getc(origin)) != EOF)){
 		putc(byteOrigin, destination);
 		totalBytes++;
 	}
