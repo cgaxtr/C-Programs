@@ -88,7 +88,6 @@ readHeader(FILE *tarFile, int *nFiles)
 	if (tarFile == NULL)
 		return NULL;
 
-	//nrFiles = getc(tarFile);
 	fread(&nrFiles,sizeof(int),1,tarFile);
 
 	array = malloc(sizeof(stHeaderEntry)*nrFiles);
@@ -127,7 +126,6 @@ readHeader(FILE *tarFile, int *nFiles)
 int
 createTar(int nFiles, char *fileNames[], char tarName[])
 {
-	//printf("%s",fileNames[0]);
 
 	FILE *outputFile;
 	stHeaderEntry *array;
@@ -167,11 +165,9 @@ createTar(int nFiles, char *fileNames[], char tarName[])
 
 	rewind(outputFile);
 
-	//putc(nFiles,outputFile);
 	if ((fwrite(&nFiles,sizeof(int),1,outputFile)) != 1)
 		return EXIT_FAILURE;
 
-	//fflush(outputFile);
 
 	for (i=0; i<nFiles;i++){
 		fwrite(array[i].name, strlen(array[i].name)+1, 1, outputFile);
@@ -211,11 +207,6 @@ extractTar(char tarName[])
 		return EXIT_FAILURE;
 
 	array = readHeader(inputFile, &numFiles);
-
-	int j;
-	for(j=0; j < numFiles; j++){
-		printf("%s", array[j].name);
-	}
 
 	for (i=0; i<numFiles; i++){
 		FILE *outputFile = fopen(array[i].name,"w");
