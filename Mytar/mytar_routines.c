@@ -15,10 +15,14 @@ extern char *use;
  * Returns the number of bytes actually copied or -1 if an error occured.
  */
 int
-copynFile(FILE * origin, FILE * destination, int nBytes)
+copynFile(FILE * origin, FILE * destination, int nBytes, uint16_t *crc)
 {
 	int totalBytes = 0;
 	int byteOrigin; //char size equal to byte size
+	uint16_t sum1 = 0;
+	uint16_t sum2 = 0;
+
+
 
 	if (origin == NULL || destination == NULL)
 		return -1;
@@ -26,8 +30,13 @@ copynFile(FILE * origin, FILE * destination, int nBytes)
 	while((totalBytes < nBytes) && ((byteOrigin = getc(origin)) != EOF)){
 		putc(byteOrigin, destination);
 		totalBytes++;
+
+		sum1 = (sum1 + (uint8_t)byteOrigin) % 255;
+		sum2 = (sum2 + sum1) % 255;
+
 	}
 
+	(*crc)= (sum2 << 8) | sum1;
 	return totalBytes;
 }
 
@@ -94,6 +103,7 @@ readHeader(FILE *tarFile, int *nFiles)
 	for(i=0; i < nrFiles; i++){
 		array[i].name = loadstr(tarFile);
 		fread(&array[i].size, sizeof(int), 1, tarFile);
+		fread(&array[i].crc, sizeof(uint16_t), 1, tarFile);
 	}
 
 	(*nFiles) = nrFiles;
@@ -131,12 +141,14 @@ createTar(int nFiles, char *fileNames[], char tarName[])
 	int i;
 	int offsetFile = 0;
 	int bytesCopied;
+	uint16_t crc;
 
 	array = malloc(sizeof(stHeaderEntry)*nFiles);
 
 	//calculation of offset size for output file
 	offsetFile += sizeof(int); //for numfiles into header
 	offsetFile += sizeof(int)* nFiles;
+	offsetFile += sizeof(uint16_t)* nFiles;
 
 	for(i = 0; i < nFiles; i++){
 		offsetFile += strlen(fileNames[i])+1;
@@ -153,12 +165,15 @@ createTar(int nFiles, char *fileNames[], char tarName[])
 		if (readFile == NULL)
 			return EXIT_FAILURE;
 
-		bytesCopied = copynFile(readFile, outputFile, INT_MAX);
+		bytesCopied = copynFile(readFile, outputFile, INT_MAX, &crc);
 		fclose(readFile);
 
 		//save in the header information about name and size of file
 		array[i].name = fileNames[i];
 		array[i].size = bytesCopied;
+		array[i].crc = crc;
+
+		printf("[%d] Adding file %s, size %d, CRC 0x%.4X\n", i, array[i].name, array[i].size, array[i].crc);
 
 	}
 
@@ -171,6 +186,7 @@ createTar(int nFiles, char *fileNames[], char tarName[])
 	for (i=0; i<nFiles;i++){
 		fwrite(array[i].name, strlen(array[i].name)+1, 1, outputFile);
 		fwrite(&array[i].size, sizeof(int), 1, outputFile);
+		fwrite(&array[i].crc, sizeof(uint16_t),1, outputFile);
 	}
 
 	free(array);
@@ -201,6 +217,7 @@ extractTar(char tarName[])
 	FILE *inputFile;
 	int numFiles;
 	int i;
+	uint16_t checksum = 0X1234;
 
 	if ((inputFile = fopen(tarName, "r")) == NULL)
 		return EXIT_FAILURE;
@@ -208,9 +225,16 @@ extractTar(char tarName[])
 	array = readHeader(inputFile, &numFiles);
 
 	for (i=0; i<numFiles; i++){
+		printf("[%d]: Creating file %s, size %d Bytes, CRC 0x%.4X\n",i, array[i].name, array[i].size, array[i].crc);
 		FILE *outputFile = fopen(array[i].name,"w");
-		copynFile(inputFile,outputFile,array[i].size);
+		copynFile(inputFile,outputFile,array[i].size, &checksum);
 		fclose(outputFile);
+
+		if (checksum == array[i].crc){
+			printf("[%d]: CRC of extracted file 0x%.4X. File is OK\n", i, checksum);
+		}else{
+			printf("[%d]: CRC of extracted file 0x%.4X. File is BAD\n", i, checksum);
+		}
 	}
 
 	//free memory
