@@ -474,6 +474,58 @@ static int my_truncate(const char *path, off_t size)
     return 0;
 }
 
+static int my_unlink(const char *path)
+{
+	int idxDir;
+	int i;
+
+	fprintf(stderr, "--->>>my_unlink: path %s", path);
+
+	if((idxDir = findFileByName(&myFileSystem, (char *)path +1)) == -1) {
+		return -ENOENT;
+	}
+
+	//directorio
+
+	//del fichero sacar el inodo
+	//con el id del inodo ver cuandos bloques ocupa y cuales
+	//con el segundo punto actualizar el bitmap
+
+	NodeStruct *node;
+	int idNodei;
+
+	idNodei = myFileSystem.directory.files[idxDir].nodeIdx;
+	myFileSystem.directory.numFiles -= 1;
+	myFileSystem.directory.files[idxDir].freeFile = true;
+
+	node = myFileSystem.nodes[idNodei];
+
+	for(i = 0; i < node->numBlocks;i++){
+		myFileSystem.bitMap[node->blocks[i]] = 0;
+	}
+
+	myFileSystem.numFreeNodes++;
+	myFileSystem.superBlock.numOfFreeBlocks += node->numBlocks;
+
+	node->freeNode = true;
+	node->fileSize = 0;
+	node->numBlocks = 0;
+
+	updateBitmap(&myFileSystem);
+	updateDirectory(&myFileSystem);
+	updateSuperBlock(&myFileSystem);
+	updateNode(&myFileSystem, idNodei, node);
+
+	free(node);
+
+	return 0;
+}
+
+static int my_read()
+{
+	return 0;
+}
+
 
 struct fuse_operations myFS_operations = {
     .getattr	= my_getattr,					// Obtain attributes from a file
@@ -483,5 +535,7 @@ struct fuse_operations myFS_operations = {
     .write		= my_write,						// Write data into a file already opened
     .release	= my_release,					// Close an opened file
     .mknod		= my_mknod,						// Create a new file
+    .unlink		= my_unlink,					// Delete a file
+    .read		= my_read						// Read file
 };
 
