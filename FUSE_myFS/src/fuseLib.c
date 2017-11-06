@@ -485,12 +485,6 @@ static int my_unlink(const char *path)
 		return -ENOENT;
 	}
 
-	//directorio
-
-	//del fichero sacar el inodo
-	//con el id del inodo ver cuandos bloques ocupa y cuales
-	//con el segundo punto actualizar el bitmap
-
 	NodeStruct *node;
 	int idNodei;
 
@@ -521,9 +515,36 @@ static int my_unlink(const char *path)
 	return 0;
 }
 
-static int my_read()
+static int my_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
 {
-	return 0;
+
+	char buffer[BLOCK_SIZE_BYTES];
+	int bytes2Read = size, totalRead = 0;
+	NodeStruct *node = myFileSystem.nodes[fi->fh];
+
+	fprintf(stderr, "--->>>my_read: path %s, size %zu, offset %jd, fh %"PRIu64"\n", path, size, (intmax_t)offset, fi->fh);
+
+	while(bytes2Read){
+
+		int i;
+		int currentBlock, offBlock;
+		currentBlock = node->blocks[offset / BLOCK_SIZE_BYTES];
+		offBlock = offset % BLOCK_SIZE_BYTES;
+
+		if(readBlock(&myFileSystem, currentBlock, &buffer)==-1 ) {
+			fprintf(stderr,"Error reading blocks in my_read\n");
+			return -EIO;
+		}
+
+		for(i = offBlock; (i < BLOCK_SIZE_BYTES) && (totalRead < size); i++) {
+			buf[i] = buffer[totalRead++];
+		}
+
+		bytes2Read -= (i - offBlock);
+		offset += (i - offBlock);
+	}
+
+	return totalRead;
 }
 
 
@@ -536,6 +557,6 @@ struct fuse_operations myFS_operations = {
     .release	= my_release,					// Close an opened file
     .mknod		= my_mknod,						// Create a new file
     .unlink		= my_unlink,					// Delete a file
-    .read		= my_read						// Read file
+    .read		= my_read,						// Read file
 };
 
