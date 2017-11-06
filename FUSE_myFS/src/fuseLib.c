@@ -537,7 +537,7 @@ static int my_read(const char *path, char *buf, size_t size, off_t offset, struc
 		}
 
 		for(i = offBlock; (i < BLOCK_SIZE_BYTES) && (totalRead < size); i++) {
-			buf[i] = buffer[totalRead++];
+			buf[totalRead++] = buffer[i];
 		}
 
 		bytes2Read -= (i - offBlock);
