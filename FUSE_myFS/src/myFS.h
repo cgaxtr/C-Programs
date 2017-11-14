@@ -25,6 +25,8 @@
 #define DIRECTORY_IDX 2
 #define NODES_IDX 3
 
+#define INFO_FILE_NAME ".myfs_sysinfo"
+
 // STRUCTS
 typedef struct FileStructure {
     int  nodeIdx;                         	// Associated i-node

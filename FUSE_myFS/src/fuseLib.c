@@ -178,6 +178,17 @@ static int my_getattr(const char *path, struct stat *stbuf)
         return 0;
     }
 
+    if(strcmp(((char *)path + 1), INFO_FILE_NAME) == 0){
+    	stbuf->st_mode = S_IFREG | 0444;
+    	stbuf->st_nlink = 1;
+    	stbuf->st_uid = getuid();
+    	stbuf->st_gid = getgid();
+    	stbuf->st_mtime = stbuf->st_ctime = myFileSystem.superBlock.creationTime;
+    	stbuf->st_blocks = 1;
+    	stbuf->st_size = BLOCK_SIZE_BYTES;
+    	return 0;
+    }
+
     /// Rest of the world
     if((idxDir = findFileByName(&myFileSystem, (char *)path + 1)) != -1) {
         node = myFileSystem.nodes[myFileSystem.directory.files[idxDir].nodeIdx];
@@ -235,6 +246,7 @@ static int my_readdir(const char *path, void *buf, fuse_fill_dir_t filler,  off_
 
     filler(buf, ".", NULL, 0);
     filler(buf, "..", NULL, 0);
+    filler(buf, INFO_FILE_NAME, NULL, 0);
 
     for(i = 0; i < MAX_FILES_PER_DIRECTORY; i++) {
         if(!(myFileSystem.directory.files[i].freeFile)) {
@@ -283,6 +295,11 @@ static int my_open(const char *path, struct fuse_file_info *fi)
 
     fprintf(stderr, "--->>>my_open: path %s, flags %d, %"PRIu64"\n", path, fi->flags, fi->fh);
 
+    if(strcmp(((char *)path + 1), INFO_FILE_NAME) == 0){
+    	fi->fh = MAX_NODES;
+    	return 0;
+    }
+
     //if(findFileByName(path, &idxNodoI)){
     if((idxDir = findFileByName(&myFileSystem, (char *)path + 1)) == -1) {
         return -ENOENT;
@@ -313,10 +330,14 @@ static int my_write(const char *path, const char *buf, size_t size, off_t offset
 {
     char buffer[BLOCK_SIZE_BYTES];
     int bytes2Write = size, totalWrite = 0;
-    NodeStruct *node = myFileSystem.nodes[fi->fh];
+
+    if(strcmp(((char *)path + 1), INFO_FILE_NAME) == 0){
+    	return -EACCES;
+    }
 
     fprintf(stderr, "--->>>my_write: path %s, size %zu, offset %jd, fh %"PRIu64"\n", path, size, (intmax_t)offset, fi->fh);
 
+    NodeStruct *node = myFileSystem.nodes[fi->fh];
     // Increase the file size if it is needed
     if(resizeNode(fi->fh, size + offset) < 0)
         return -EIO;
@@ -463,6 +484,10 @@ static int my_truncate(const char *path, off_t size)
 
     fprintf(stderr, "--->>>my_truncate: path %s, size %jd\n", path, size);
 
+    if(strcmp(((char *)path + 1), INFO_FILE_NAME) == 0){
+    	return -ENOENT;
+    }
+
     if((idxDir = findFileByName(&myFileSystem, (char *)path + 1)) == -1) {
         return -ENOENT;
     }
@@ -480,6 +505,9 @@ static int my_unlink(const char *path)
 	int i;
 
 	fprintf(stderr, "--->>>my_unlink: path %s", path);
+	if(strcmp(((char *)path + 1), INFO_FILE_NAME) == 0){
+		return -EACCES;
+	}
 
 	if((idxDir = findFileByName(&myFileSystem, (char *)path +1)) == -1) {
 		return -ENOENT;
@@ -520,10 +548,26 @@ static int my_read(const char *path, char *buf, size_t size, off_t offset, struc
 
 	char buffer[BLOCK_SIZE_BYTES];
 	int bytes2Read = size, totalRead = 0;
-	NodeStruct *node = myFileSystem.nodes[fi->fh];
 
 	fprintf(stderr, "--->>>my_read: path %s, size %zu, offset %jd, fh %"PRIu64"\n", path, size, (intmax_t)offset, fi->fh);
 
+	if(fi->fh == MAX_NODES){
+		totalRead += sprintf(buf, "Fecha de creacion: %s", ctime(&myFileSystem.superBlock.creationTime));
+		totalRead += sprintf(buf+totalRead, "Tam Super Bloque: %d\n", myFileSystem.superBlock.blockSize);
+		//
+		totalRead += sprintf(buf+totalRead, "Tam Directorio: %d\n",1);
+		totalRead += sprintf(buf+totalRead, "Tam Nodo-i: %d\n", 1);
+		//
+		totalRead += sprintf(buf+totalRead, "Tam Disco (bloques): %d\n",myFileSystem.superBlock.diskSizeInBlocks);
+		totalRead += sprintf(buf+totalRead, "Num bloques libres: %d\n", myFileSystem.superBlock.numOfFreeBlocks);
+		totalRead += sprintf(buf+totalRead, "Max tam nombre de archivo: %d\n", MAX_LEN_FILE_NAME);
+		totalRead += sprintf(buf+totalRead, "Max bloques por archivo: %d\n", MAX_BLOCKS_PER_FILE);
+		totalRead += sprintf(buf+totalRead, "Numero de archivos: %d\n", myFileSystem.directory.numFiles);
+
+		return totalRead;
+	}
+
+	NodeStruct *node = myFileSystem.nodes[fi->fh];
 	while(bytes2Read){
 
 		int i;
