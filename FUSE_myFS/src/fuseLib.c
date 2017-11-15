@@ -554,10 +554,8 @@ static int my_read(const char *path, char *buf, size_t size, off_t offset, struc
 	if(fi->fh == MAX_NODES){
 		totalRead += sprintf(buf, "Fecha de creacion: %s", ctime(&myFileSystem.superBlock.creationTime));
 		totalRead += sprintf(buf+totalRead, "Tam Super Bloque: %d\n", myFileSystem.superBlock.blockSize);
-		//
-		totalRead += sprintf(buf+totalRead, "Tam Directorio: %d\n",1);
-		totalRead += sprintf(buf+totalRead, "Tam Nodo-i: %d\n", 1);
-		//
+		totalRead += sprintf(buf+totalRead, "Tam Directorio: %d\n", myFileSystem.superBlock.diskSizeInBlocks*BLOCK_SIZE_BYTES);
+		totalRead += sprintf(buf+totalRead, "Tam Nodo-i: %ld\n", sizeof(NodeStruct));
 		totalRead += sprintf(buf+totalRead, "Tam Disco (bloques): %d\n",myFileSystem.superBlock.diskSizeInBlocks);
 		totalRead += sprintf(buf+totalRead, "Num bloques libres: %d\n", myFileSystem.superBlock.numOfFreeBlocks);
 		totalRead += sprintf(buf+totalRead, "Max tam nombre de archivo: %d\n", MAX_LEN_FILE_NAME);
