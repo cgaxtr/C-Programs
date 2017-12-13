@@ -1,18 +1,50 @@
 #include "sched.h"
 
+static int compare_tasks_cpu_priority(void *t1,void *t2){
+	task_t* task1 = (task_t*)t1;
+	task_t* task2 = (task_t*)t2;
+
+	return task1->prio-task2->prio;
+}
+
 static task_t* pick_next_task_prio( runqueue_t* rq )
 {
+	task_t* t=head_slist(&rq->tasks);
 
+		if (t)
+			remove_slist(&rq->tasks,t);
+
+		return t;
 }
 
 static void enqueue_task_prio(task_t* t,runqueue_t* rq, int preempted)
 {
+	if (t->on_rq || is_idle_task(t))
+		return;
 
+	if (t->flags & TF_INSERT_FRONT) {
+			//Clear flag
+			t->flags&=~TF_INSERT_FRONT;
+			sorted_insert_slist_front(&rq->tasks, t, 1, compare_tasks_cpu_priority);  //Push task
+	}else
+		sorted_insert_slist(&rq->tasks, t, 1, compare_tasks_cpu_priority);  //Push task
+
+	if (!preempted) {
+		task_t* current=rq->cur_task;
+
+		/* Trigger a preemption if this task has a shorter CPU priority than current */
+		if (preemptive_scheduler && t->prio < current->prio) {
+			rq->need_resched=TRUE;
+			current->flags|=TF_INSERT_FRONT; /* To avoid unfair situations in the event
+                                                another task with the same length wakes up as well*/
+		}
+	}
 }
 
 static task_t* steal_task_prio(runqueue_t* rq)
 {
 
+	return NULL;
 }
 
 sched_class_t prio_sched={
