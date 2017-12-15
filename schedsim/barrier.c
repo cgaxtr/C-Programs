@@ -92,8 +92,8 @@ int sys_barrier_wait(sys_barrier_t *barrier)
 				pthread_cond_wait(&barrier->cond, &barrier->mutex);
 		}
 	}else{
-		pthread_cond_broadcast(&barrier->cond);
 		barrier->nr_threads_arrived = 0;
+		pthread_cond_broadcast(&barrier->cond);
 	}
 
 	pthread_mutex_unlock(&barrier->mutex);
