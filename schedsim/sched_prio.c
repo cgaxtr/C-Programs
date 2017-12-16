@@ -43,8 +43,12 @@ static void enqueue_task_prio(task_t* t,runqueue_t* rq, int preempted)
 
 static task_t* steal_task_prio(runqueue_t* rq)
 {
+	task_t* t=tail_slist(&rq->tasks);
 
-	return NULL;
+	if (t)
+		remove_slist(&rq->tasks,t);
+
+	return t;
 }
 
 sched_class_t prio_sched={
