@@ -3,7 +3,14 @@
 #include <linux/fs.h>
 #include <asm/uaccess.h>
 #include <linux/cdev.h>
-#include <stdio.h>
+#include <asm-generic/errno.h>
+#include <linux/init.h>
+#include <linux/tty.h>      /* For fg_console */
+#include <linux/kd.h>       /* For KDSETLED */
+#include <linux/vt_kern.h>
+#include <linux/version.h> /* For LINUX_VERSION_CODE */
+
+struct tty_driver* kbd_driver= NULL;
 
 MODULE_LICENSE("GPL");
 
@@ -32,6 +39,7 @@ static int Device_Open = 0;	/* Is device open?
 static char msg[BUF_LEN];	/* The msg the device will give when asked */
 static char *msg_Ptr;		/* This will be initialized every time the
 				   device is opened successfully */
+static int counter=0;	
 
 static struct file_operations fops = {
     .read = device_read,
@@ -98,6 +106,28 @@ void cleanup_module(void)
     unregister_chrdev_region(start, 1);
 }
 
+/* Get driver handler */
+struct tty_driver* get_kbd_driver_handler(void)
+{
+    printk(KERN_INFO "modleds: loading\n");
+    printk(KERN_INFO "modleds: fgconsole is %x\n", fg_console);
+#if ( LINUX_VERSION_CODE > KERNEL_VERSION(2,6,32) )
+    return vc_cons[fg_console].d->port.tty->driver;
+#else
+    return vc_cons[fg_console].d->vc_tty->driver;
+#endif
+}
+
+/* Set led state to that specified by mask */
+static inline int set_leds(struct tty_driver* handler, unsigned int mask)
+{
+#if ( LINUX_VERSION_CODE > KERNEL_VERSION(2,6,32) )
+    return (handler->ops->ioctl) (vc_cons[fg_console].d->port.tty, KDSETLED,mask);
+#else
+    return (handler->ops->ioctl) (vc_cons[fg_console].d->vc_tty, NULL, KDSETLED, mask);
+#endif
+}
+
 /*
  * Called when a process tries to open the device file, like
  * "cat /dev/chardev"
@@ -108,6 +138,12 @@ static int device_open(struct inode *inode, struct file *file)
         return -EBUSY;
 
     Device_Open++;
+
+    /* Initialize msg */
+    sprintf(msg, "I already told you %d times Hello world!\n", counter++);
+
+    /* Initially, this points to the beginning of the message */
+    msg_Ptr = msg;
 
     /* Increase the module's reference counter */
     try_module_get(THIS_MODULE);
@@ -196,7 +232,6 @@ device_write(struct file *filp, const char *buff, size_t len, loff_t * off)
 			mask_leds |= 0x4;
 		else if (kbuffer[i] == '3')
 			mask_leds |= 0x1;
-		}
 		
 	}
 	//KB_SCROLOCK_FLAG KB_NUMLOCK_FLAG KB_CAPSLOCK_FLAG
