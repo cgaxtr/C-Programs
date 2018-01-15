@@ -25,7 +25,7 @@ static ssize_t device_read(struct file *, char *, size_t, loff_t *);
 static ssize_t device_write(struct file *, const char *, size_t, loff_t *);
 
 #define SUCCESS 0
-#define DEVICE_NAME "chardev_leds"	/* Dev name as it appears in /proc/devices   */
+#define DEVICE_NAME "leds"	/* Dev name as it appears in /proc/devices   */
 #define BUF_LEN 80		/* Max length of the message from the device */
 
 /*
@@ -217,22 +217,26 @@ static ssize_t device_read(struct file *filp,	/* see include/linux/fs.h   */
 static ssize_t
 device_write(struct file *filp, const char *buff, size_t len, loff_t * off)
 {
-	int bytes_to_write = len;
-	char kbuffer[len];
+	int bytes_to_write = 0;
 	int i;
 	int mask_leds = 0x0;
+	char kbuff[1];
 
-	if (copy_from_user(kbuffer, buff, bytes_to_write) != 0)
-		return -EFAULT;
+	//if (copy_from_user(kbuffer, buff, bytes_to_write) != 0)
+		//return -EFAULT;
 	
-	for(i=0; i < bytes_to_write; i++){
-		if(kbuffer[i] == '1') 
-			mask_leds |= 0x2;
-		else if (kbuffer[i] == '2')
-			mask_leds |= 0x4;
-		else if (kbuffer[i] == '3')
-			mask_leds |= 0x1;
+	for(i=0; i < len; i++){
 		
+		if (copy_from_user(kbuff, buff+i, 1) != 0)
+			return -EFAULT;
+		
+		if(kbuff[0] == '1') 
+			mask_leds |= 0x2;
+		else if (kbuff[0] == '2')
+			mask_leds |= 0x4;
+		else if (kbuff[0] == '3')
+			mask_leds |= 0x1;
+		bytes_to_write++;
 	}
 	//KB_SCROLOCK_FLAG KB_NUMLOCK_FLAG KB_CAPSLOCK_FLAG
 	kbd_driver= get_kbd_driver_handler();

@@ -6,7 +6,7 @@
 
 #define TRUE 1;
 #define FALSE 0;
-#define PATH "/dev/chardev_leds"
+#define PATH "/dev/leds"
 
 //PROTOTYPES
 int writeLeds(int fileDesc, char *buff);
